@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PulseBudget</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #080d18;
+      --surface: #0f1829;
+      --panel: #131f33;
+      --border: #1e2f4a;
+      --text: #e8f0fe;
+      --muted: #6b85a8;
+      --accent: #3dd9eb;
+      --accent2: #7c6bff;
+      --green: #4dffa0;
+      --warn: #ff7c6b;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* AUTH */
+    #authScreen {
+      display: flex; align-items: center; justify-content: center; min-height: 100vh;
+      background: radial-gradient(ellipse at 30% 20%, #0d2240 0%, #080d18 60%);
+    }
+    .auth-box {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 24px;
+      padding: 2.5rem 2rem; width: 100%; max-width: 400px;
+      box-shadow: 0 40px 80px rgba(0,0,0,.5);
+    }
+    .auth-box h1 {
+      font-family: 'DM Serif Display', serif; font-size: 2rem;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: .3rem;
+    }
+    .auth-box > p { color: var(--muted); font-size: .9rem; margin-bottom: 1.8rem; }
+    .auth-tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
+    .auth-tab {
+      flex: 1; padding: .6rem; border-radius: 10px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); cursor: pointer;
+      font-family: 'DM Sans', sans-serif; font-size: .9rem; transition: all .2s;
+    }
+    .auth-tab.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+    .auth-field { display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem; }
+    .auth-field label { font-size: .78rem; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+    .auth-field input {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text); padding: .75rem 1rem; font-family: 'DM Sans', sans-serif;
+      font-size: .95rem; outline: none; transition: border .2s;
+    }
+    .auth-field input:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%; padding: .85rem; border-radius: 12px; border: none;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      color: #080d18; font-family: 'DM Sans', sans-serif; font-weight: 600;
+      font-size: 1rem; cursor: pointer; transition: opacity .2s;
+    }
+    .btn-primary:hover { opacity: .88; }
+    #authMsg { font-size: .85rem; color: var(--warn); margin-top: .8rem; text-align: center; min-height: 1.2em; }
+    .demo-hint { font-size: .78rem; color: var(--muted); text-align: center; margin-top: 1rem; }
+
+    /* APP */
+    #appScreen { display: none; }
+    .topbar {
+      display: flex; flex-wrap: wrap; gap: .8rem; align-items: center;
+      justify-content: space-between; padding: 1rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,13,24,.9); backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-left h1 {
+      font-family: 'DM Serif Display', serif; font-size: 1.5rem;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .topbar-left p { font-size: .8rem; color: var(--muted); }
+    .topbar-right { display: flex; gap: .6rem; align-items: center; }
+    #userLabel { font-size: .85rem; color: var(--muted); }
+    .btn-sm {
+      padding: .45rem .9rem; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: .82rem; cursor: pointer; transition: all .2s;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+    .grid {
+      display: grid; gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      padding: 1.2rem;
+    }
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.2rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .panel h2 {
+      font-family: 'DM Serif Display', serif; font-size: 1.15rem;
+      margin-bottom: .9rem; color: var(--text);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .panel h3 { font-size: .85rem; color: var(--muted); font-weight: 500; margin-bottom: .5rem; margin-top: 1rem; }
+
+    /* ROWS */
+    .row {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .55rem 0; border-bottom: 1px solid var(--border);
+    }
+    .row:last-child { border-bottom: none; }
+    .row-name { font-weight: 500; flex: 1; font-size: .92rem; }
+    .row-meta { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+    .row-actions { display: flex; gap: .2rem; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; color: var(--muted);
+      font-size: .75rem; padding: .25rem .4rem; border-radius: 6px; transition: all .15s;
+    }
+    .icon-btn:hover { color: var(--accent); background: rgba(61,217,235,.1); }
+    .icon-btn.del:hover { color: var(--warn); background: rgba(255,124,107,.1); }
+
+    /* FORMS */
+    .form { display: grid; gap: .5rem; }
+    .form input, .form select {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      color: var(--text); padding: .6rem .75rem; font-family: 'DM Sans', sans-serif;
+      font-size: .88rem; outline: none; transition: border .2s; width: 100%;
+    }
+    .form input:focus, .form select:focus { border-color: var(--accent); }
+    .form select option { background: var(--surface); }
+    .form button {
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      border: none; border-radius: 10px; color: #080d18;
+      font-family: 'DM Sans', sans-serif; font-weight: 600;
+      font-size: .88rem; padding: .65rem; cursor: pointer; transition: opacity .2s;
+    }
+    .form button:hover { opacity: .85; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+
+    /* RANGE BUTTONS */
+    .toolbar { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .8rem; }
+    .range-btn {
+      padding: .35rem .8rem; border-radius: 20px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: .82rem; cursor: pointer; transition: all .2s;
+    }
+    .range-btn.active { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+
+    /* GOALS */
+    .goal-row { margin-bottom: .9rem; }
+    .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
+    .goal-name { font-weight: 500; font-size: .9rem; }
+    .goal-bar-bg { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .goal-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green), var(--accent)); transition: width .5s ease; }
+    .goal-foot { display: flex; justify-content: space-between; margin-top: .25rem; }
+    .goal-amt { font-size: .8rem; color: var(--muted); }
+    .goal-pct { font-size: .75rem; color: var(--green); }
+
+    /* NET WORTH */
+    .net-worth { font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--green); margin-bottom: .4rem; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+      padding: 1.8rem; width: 100%; max-width: 380px;
+      transform: translateY(20px); transition: transform .25s;
+      box-shadow: 0 40px 80px rgba(0,0,0,.6);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal h3 { font-family: 'DM Serif Display', serif; font-size: 1.2rem; margin-bottom: 1rem; }
+    .modal-actions { display: flex; gap: .6rem; margin-top: 1rem; }
+    .btn-cancel {
+      flex: 1; padding: .65rem; border-radius: 10px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: .88rem; cursor: pointer;
+    }
+    .btn-save {
+      flex: 1; padding: .65rem; border-radius: 10px; border: none;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      color: #080d18; font-family: 'DM Sans', sans-serif; font-weight: 600;
+      font-size: .88rem; cursor: pointer;
+    }
+
+    canvas { max-height: 220px; margin-top: .5rem; }
+    .muted { color: var(--muted); font-size: .8rem; }
+  </style>
+</head>
+<body>
+
+<!-- ── AUTH ── -->
+<div id="authScreen">
+  <div class="auth-box">
+    <h1>PulseBudget</h1>
+    <p>Your personal finance dashboard</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Log In</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <div id="loginForm">
+      <div class="auth-field"><label>Email</label><input id="loginEmail" type="email" placeholder="you@email.com" /></div>
+      <div class="auth-field"><label>Passcode</label><input id="loginPass" type="password" placeholder="Your passcode" /></div>
+      <button class="btn-primary" onclick="doLogin()">Log In</button>
+    </div>
+
+    <div id="signupForm" style="display:none">
+      <div class="auth-field"><label>Email</label><input id="signupEmail" type="email" placeholder="you@email.com" /></div>
+      <div class="auth-field"><label>Passcode</label><input id="signupPass" type="password" placeholder="Choose a passcode (min 4 chars)" /></div>
+      <div class="auth-field"><label>Confirm Passcode</label><input id="signupPass2" type="password" placeholder="Repeat passcode" /></div>
+      <button class="btn-primary" onclick="doSignup()">Create Account</button>
+    </div>
+
+    <div id="authMsg"></div>
+    <p class="demo-hint">Demo: any email + passcode <strong>1234</strong> to try instantly</p>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="appScreen">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>PulseBudget</h1>
+      <p>All your spending, saving &amp; investments</p>
+    </div>
+    <div class="topbar-right">
+      <span id="userLabel"></span>
+      <button class="btn-sm" onclick="doLogout()">Log Out</button>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <!-- Accounts -->
+    <section class="panel">
+      <h2>Accounts Snapshot</h2>
+      <div class="net-worth" id="netWorthVal">$0.00</div>
+      <div id="accountsList"></div>
+      <h3>Add Account</h3>
+      <div class="form">
+        <input id="accName" placeholder="Account name (e.g., Chase Freedom)" />
+        <div class="form-row">
+          <select id="accType">
+            <option value="credit">Credit Card</option>
+            <option value="debit">Debit</option>
+            <option value="savings">Savings</option>
+            <option value="hysa">HYSA</option>
+            <option value="roth_ira">Roth IRA</option>
+            <option value="investment">Investment</option>
+          </select>
+          <input id="accBal" type="number" step="0.01" placeholder="Balance ($)" />
+        </div>
+        <button onclick="addAccount()">+ Add Account</button>
+      </div>
+    </section>
+
+    <!-- Spending -->
+    <section class="panel">
+      <h2>Spending Tracker</h2>
+      <div class="toolbar">
+        <button class="range-btn" data-r="daily" onclick="setRange('daily')">Daily</button>
+        <button class="range-btn" data-r="weekly" onclick="setRange('weekly')">Weekly</button>
+        <button class="range-btn active" data-r="monthly" onclick="setRange('monthly')">Monthly</button>
+        <button class="range-btn" data-r="yearly" onclick="setRange('yearly')">Yearly</button>
+      </div>
+      <canvas id="spendingChart"></canvas>
+      <h3>Add Expense</h3>
+      <div class="form">
+        <input id="expLabel" placeholder="Label (Rent, Groceries…)" />
+        <div class="form-row">
+          <input id="expAmt" type="number" step="0.01" placeholder="Amount ($)" />
+          <select id="expCat">
+            <option value="Rent">Rent</option>
+            <option value="Bills">Bills</option>
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <button onclick="addExpense()">+ Add Expense</button>
+      </div>
+    </section>
+
+    <!-- Goals -->
+    <section class="panel">
+      <h2>Savings Goals</h2>
+      <div id="goalsList"></div>
+      <h3>Add Goal</h3>
+      <div class="form">
+        <input id="goalName" placeholder="Goal name" />
+        <div class="form-row">
+          <input id="goalTarget" type="number" step="0.01" placeholder="Target ($)" />
+          <input id="goalSaved" type="number" step="0.01" placeholder="Saved so far ($)" />
+        </div>
+        <button onclick="addGoal()">+ Add Goal</button>
+      </div>
+    </section>
+
+    <!-- Stocks -->
+    <section class="panel">
+      <h2>Stock Watcher</h2>
+      <div id="stockList"></div>
+      <h3>Add Ticker</h3>
+      <div class="form">
+        <div class="form-row">
+          <input id="stockSym" placeholder="AAPL" />
+          <input id="stockPrice" type="number" step="0.01" placeholder="Price ($)" />
+        </div>
+        <button onclick="addStock()">+ Add Ticker</button>
+      </div>
+      <p class="muted" style="margin-top:.6rem">Tip: connect a market API for live prices.</p>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h3 id="modalTitle">Edit</h3>
+    <div id="modalBody" class="form"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveModal()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STORAGE HELPERS ───
+const DEMO_PASS = '1234';
+function getUsers() { try { return JSON.parse(localStorage.getItem('pb_users') || '{}'); } catch { return {}; } }
+function saveUsers(u) { localStorage.setItem('pb_users', JSON.stringify(u)); }
+function dataKey(email) { return 'pb_data_' + btoa(unescape(encodeURIComponent(email))); }
+function defaultData() {
+  return {
+    accounts: [
+      { name: 'Main Checking', type: 'debit', balance: 2450 },
+      { name: 'Emergency HYSA', type: 'hysa', balance: 9100 },
+      { name: 'Roth IRA', type: 'roth_ira', balance: 18350 }
+    ],
+    expenses: [
+      { label: 'Rent', amount: 1600, category: 'Rent' },
+      { label: 'Electric', amount: 120, category: 'Bills' },
+      { label: 'Groceries', amount: 340, category: 'Food' }
+    ],
+    goals: [
+      { name: 'Travel Fund', target: 4000, saved: 1800 },
+      { name: 'New Laptop', target: 2200, saved: 600 }
+    ],
+    stocks: [{ symbol: 'VOO', price: 482.14 }]
+  };
+}
+function loadData(email) { try { return JSON.parse(localStorage.getItem(dataKey(email)) || 'null') || defaultData(); } catch { return defaultData(); } }
+function saveData() { if (currentUser) localStorage.setItem(dataKey(currentUser), JSON.stringify(state)); }
+
+// ─── APP STATE ───
+let currentUser = null;
+let state = {};
+let spChart = null;
+let currentRange = 'monthly';
+let modalCtx = null;
+const MULTI = { daily: 1/30, weekly: 7/30, monthly: 1, yearly: 12 };
+
+// ─── AUTH ───
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t, i) => t.classList.toggle('active', i === (tab === 'login' ? 0 : 1)));
+  document.getElementById('loginForm').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('signupForm').style.display = tab === 'signup' ? '' : 'none';
+  document.getElementById('authMsg').textContent = '';
+}
+
+function showMsg(m) { document.getElementById('authMsg').textContent = m; }
+
+function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+  if (!email || !pass) return showMsg('Please fill in all fields.');
+  if (pass === DEMO_PASS) return loginSuccess(email);
+  const users = getUsers();
+  if (!users[email]) return showMsg('No account found — please sign up first.');
+  if (users[email] !== btoa(pass)) return showMsg('Incorrect passcode.');
+  loginSuccess(email);
+}
+
+function doSignup() {
+  const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+  const pass = document.getElementById('signupPass').value;
+  const pass2 = document.getElementById('signupPass2').value;
+  if (!email || !pass || !pass2) return showMsg('Please fill in all fields.');
+  if (pass !== pass2) return showMsg('Passcodes do not match.');
+  if (pass.length < 4) return showMsg('Passcode must be at least 4 characters.');
+  const users = getUsers();
+  if (users[email]) return showMsg('Account already exists — please log in.');
+  users[email] = btoa(pass);
+  saveUsers(users);
+  loginSuccess(email);
+}
+
+function loginSuccess(email) {
+  currentUser = email;
+  state = loadData(email);
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = '';
+  document.getElementById('userLabel').textContent = email;
+  initChart();
+  renderAll();
+}
+
+function doLogout() {
+  currentUser = null;
+  state = {};
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = '';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('authMsg').textContent = '';
+  if (spChart) { spChart.destroy(); spChart = null; }
+}
+
+// ─── CHART ───
+function initChart() {
+  if (spChart) spChart.destroy();
+  const ctx = document.getElementById('spendingChart').getContext('2d');
+  spChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: [],
+      datasets: [{ data: [], backgroundColor: ['#3dd9eb','#7c6bff','#ff9f6d','#4dffa0','#ffd76b','#f77ecb','#ff7c6b'] }]
+    },
+    options: {
+      plugins: { legend: { labels: { color: '#e8f0fe', font: { family: 'DM Sans', size: 12 } } } }
+    }
+  });
+}
+
+function setRange(r) {
+  currentRange = r;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.toggle('active', b.dataset.r === r));
+  updateChart();
+}
+
+function updateChart() {
+  if (!spChart) return;
+  const m = MULTI[currentRange];
+  const totals = {};
+  state.expenses.forEach(e => { totals[e.category] = (totals[e.category] || 0) + e.amount * m; });
+  spChart.data.labels = Object.keys(totals);
+  spChart.data.datasets[0].data = Object.values(totals).map(v => Math.round(v * 100) / 100);
+  spChart.update();
+}
+
+// ─── RENDER ───
+const fmt = n => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function renderAll() { renderAccounts(); renderGoals(); renderStocks(); updateChart(); }
+
+function renderAccounts() {
+  const el = document.getElementById('accountsList');
+  el.innerHTML = '';
+  let net = 0;
+  state.accounts.forEach((a, i) => {
+    net += Number(a.balance);
+    const d = document.createElement('div');
+    d.className = 'row';
+    d.innerHTML = `
+      <span class="row-name">${esc(a.name)}</span>
+      <span class="row-meta">${a.type.toUpperCase()} • ${fmt(a.balance)}</span>
+      <span class="row-actions">
+        <button class="icon-btn" onclick="editAccount(${i})">✏️</button>
+        <button class="icon-btn del" onclick="delAccount(${i})">✕</button>
+      </span>`;
+    el.appendChild(d);
+  });
+  document.getElementById('netWorthVal').textContent = fmt(net);
+}
+
+function renderGoals() {
+  const el = document.getElementById('goalsList');
+  el.innerHTML = '';
+  state.goals.forEach((g, i) => {
+    const pct = Math.min(100, Math.round((g.saved / g.target) * 100));
+    const d = document.createElement('div');
+    d.className = 'goal-row';
+    d.innerHTML = `
+      <div class="goal-header">
+        <span class="goal-name">${esc(g.name)}</span>
+        <span class="row-actions">
+          <button class="icon-btn" onclick="editGoal(${i})">✏️</button>
+          <button class="icon-btn del" onclick="delGoal(${i})">✕</button>
+        </span>
+      </div>
+      <div class="goal-bar-bg"><div class="goal-bar-fill" style="width:${pct}%"></div></div>
+      <div class="goal-foot">
+        <span class="goal-amt">${fmt(g.saved)} / ${fmt(g.target)}</span>
+        <span class="goal-pct">${pct}%</span>
+      </div>`;
+    el.appendChild(d);
+  });
+}
+
+function renderStocks() {
+  const el = document.getElementById('stockList');
+  el.innerHTML = '';
+  state.stocks.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'row';
+    d.innerHTML = `
+      <span class="row-name">${esc(s.symbol)}</span>
+      <span class="row-meta">${fmt(s.price)}</span>
+      <span class="row-actions">
+        <button class="icon-btn" onclick="editStock(${i})">✏️</button>
+        <button class="icon-btn del" onclick="delStock(${i})">✕</button>
+      </span>`;
+    el.appendChild(d);
+  });
+}
+
+// ─── ADD ───
+function addAccount() {
+  const name = document.getElementById('accName').value.trim();
+  const type = document.getElementById('accType').value;
+  const balance = parseFloat(document.getElementById('accBal').value);
+  if (!name || isNaN(balance)) return alert('Please fill in account name and balance.');
+  state.accounts.push({ name, type, balance });
+  saveData(); renderAccounts();
+  document.getElementById('accName').value = '';
+  document.getElementById('accBal').value = '';
+}
+
+function addExpense() {
+  const label = document.getElementById('expLabel').value.trim();
+  const amount = parseFloat(document.getElementById('expAmt').value);
+  const category = document.getElementById('expCat').value;
+  if (!label || isNaN(amount)) return alert('Please fill in label and amount.');
+  state.expenses.push({ label, amount, category });
+  saveData(); updateChart();
+  document.getElementById('expLabel').value = '';
+  document.getElementById('expAmt').value = '';
+}
+
+function addGoal() {
+  const name = document.getElementById('goalName').value.trim();
+  const target = parseFloat(document.getElementById('goalTarget').value);
+  const saved = parseFloat(document.getElementById('goalSaved').value);
+  if (!name || isNaN(target) || isNaN(saved)) return alert('Please fill in all goal fields.');
+  state.goals.push({ name, target, saved });
+  saveData(); renderGoals();
+  document.getElementById('goalName').value = '';
+  document.getElementById('goalTarget').value = '';
+  document.getElementById('goalSaved').value = '';
+}
+
+function addStock() {
+  const symbol = document.getElementById('stockSym').value.trim().toUpperCase();
+  const price = parseFloat(document.getElementById('stockPrice').value);
+  if (!symbol || isNaN(price)) return alert('Please fill in symbol and price.');
+  state.stocks.push({ symbol, price });
+  saveData(); renderStocks();
+  document.getElementById('stockSym').value = '';
+  document.getElementById('stockPrice').value = '';
+}
+
+// ─── DELETE ───
+function delAccount(i) { if (confirm('Remove this account?')) { state.accounts.splice(i,1); saveData(); renderAccounts(); } }
+function delGoal(i)    { if (confirm('Remove this goal?'))    { state.goals.splice(i,1);    saveData(); renderGoals();    } }
+function delStock(i)   { if (confirm('Remove this ticker?'))  { state.stocks.splice(i,1);   saveData(); renderStocks();   } }
+
+// ─── EDIT MODAL ───
+const ACCOUNT_TYPES = ['credit','debit','savings','hysa','roth_ira','investment'];
+
+function openModal(title, html, ctx) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = html;
+  modalCtx = ctx;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); modalCtx = null; }
+
+function editAccount(i) {
+  const a = state.accounts[i];
+  openModal('Edit Account', `
+    <input id="mName" value="${esc(a.name)}" placeholder="Account name" />
+    <select id="mType">${ACCOUNT_TYPES.map(t => `<option value="${t}"${a.type===t?' selected':''}>${t.toUpperCase()}</option>`).join('')}</select>
+    <input id="mBal" type="number" value="${a.balance}" placeholder="Balance ($)" />
+  `, { kind: 'account', i });
+}
+
+function editGoal(i) {
+  const g = state.goals[i];
+  openModal('Edit Goal', `
+    <input id="mName" value="${esc(g.name)}" placeholder="Goal name" />
+    <input id="mTarget" type="number" value="${g.target}" placeholder="Target ($)" />
+    <input id="mSaved" type="number" value="${g.saved}" placeholder="Saved so far ($)" />
+  `, { kind: 'goal', i });
+}
+
+function editStock(i) {
+  const s = state.stocks[i];
+  openModal('Edit Ticker', `
+    <input id="mSym" value="${esc(s.symbol)}" placeholder="Symbol" />
+    <input id="mPrice" type="number" value="${s.price}" placeholder="Price ($)" />
+  `, { kind: 'stock', i });
+}
+
+function saveModal() {
+  if (!modalCtx) return;
+  const { kind, i } = modalCtx;
+  if (kind === 'account') {
+    const name = document.getElementById('mName').value.trim();
+    const type = document.getElementById('mType').value;
+    const balance = parseFloat(document.getElementById('mBal').value);
+    if (!name || isNaN(balance)) return alert('Please fill all fields.');
+    state.accounts[i] = { name, type, balance };
+    saveData(); renderAccounts();
+  } else if (kind === 'goal') {
+    const name = document.getElementById('mName').value.trim();
+    const target = parseFloat(document.getElementById('mTarget').value);
+    const saved = parseFloat(document.getElementById('mSaved').value);
+    if (!name || isNaN(target) || isNaN(saved)) return alert('Please fill all fields.');
+    state.goals[i] = { name, target, saved };
+    saveData(); renderGoals();
+  } else if (kind === 'stock') {
+    const symbol = document.getElementById('mSym').value.trim().toUpperCase();
+    const price = parseFloat(document.getElementById('mPrice').value);
+    if (!symbol || isNaN(price)) return alert('Please fill all fields.');
+    state.stocks[i] = { symbol, price };
+    saveData(); renderStocks();
+  }
+  closeModal();
+}
+
+// Enter key on login
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('authScreen').style.display !== 'none') {
+    document.getElementById('loginForm').style.display !== 'none' ? doLogin() : doSignup();
+  }
+});
+</script>
+</body>
+</html>
